@@ -116,13 +116,36 @@ async def mode_backtest(args, config: TradingConfig):
             
             # CSV 저장
             import csv
-            with open(f"backtest/backtest_{symbol.replace('/', '_')}.csv", 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=stats['trades'][0].keys() if stats.get('trades') else [])
-                if stats.get('trades'):
+            os.makedirs("backtest", exist_ok=True)
+            csv_path = f"backtest/backtest_{symbol.replace('/', '_')}.csv"
+            trades = stats.get('trades', [])
+            if trades:
+                fieldnames = [
+                    'trade_id', 'symbol', 'side', 'entry_time', 'exit_time',
+                    'entry_price', 'exit_price', 'amount', 'pnl',
+                    'exit_reason', 'holding_seconds', 'signal_score'
+                ]
+                with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
                     writer.writeheader()
-                    writer.writerows(stats['trades'])
-            
-            logger.info(f"Results saved to backtest/backtest_{symbol.replace('/', '_')}.csv")
+                    for trade in trades:
+                        writer.writerow({
+                            'trade_id': trade.trade_id,
+                            'symbol': trade.symbol,
+                            'side': trade.side.value,
+                            'entry_time': trade.entry_time.isoformat(),
+                            'exit_time': trade.exit_time.isoformat(),
+                            'entry_price': trade.entry_price,
+                            'exit_price': trade.exit_price,
+                            'amount': trade.amount,
+                            'pnl': trade.pnl,
+                            'exit_reason': trade.exit_reason.value,
+                            'holding_seconds': trade.holding_seconds,
+                            'signal_score': trade.signal_score
+                        })
+                logger.info(f"Results saved to {csv_path}")
+            else:
+                logger.warning("No trades to export")
             
         except Exception as e:
             logger.error(f"Backtest failed for {symbol}: {e}")

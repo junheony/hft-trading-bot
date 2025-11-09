@@ -104,7 +104,8 @@ class RiskManager:
             'losses': self.daily_losses,
             'win_rate': self.daily_wins / max(self.daily_trades, 1),
             'consecutive_losses': self.consecutive_losses,
-            'emergency_stop': self.emergency_stop
+            'emergency_stop': self.emergency_stop,
+            'sharpe_ratio': self.calculate_sharpe_ratio()
         }
     
     def calculate_sharpe_ratio(self) -> float:

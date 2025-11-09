@@ -84,6 +84,9 @@ class AIModel:
         
         X_list = []
         y_list = []
+        positive_samples = 0
+        negative_samples = 0
+        skipped_samples = 0
         
         # 피처 & 라벨 생성
         for i in range(len(orderbooks) - forward_ticks):
@@ -122,10 +125,13 @@ class AIModel:
             # 라벨링: 익절 도달 → 1, 손절 도달 → 0, 중립 → 0
             if max_gain >= self.config.take_profit_rate:
                 label = 1
+                positive_samples += 1
             elif max_loss <= -self.config.stop_loss_rate:
                 label = 0
+                negative_samples += 1
             else:
-                label = 0
+                skipped_samples += 1
+                continue
             
             X_list.append(features)
             y_list.append(label)
@@ -133,9 +139,18 @@ class AIModel:
         X = np.array(X_list)
         y = np.array(y_list)
         
+        if len(X) == 0 or len(y) == 0:
+            raise RuntimeError("No labeled samples (all ticks skipped). Collect more data.")
+        
         if logger:
             logger.info(f"Training samples: {len(X)}")
-            logger.info(f"Positive samples: {sum(y)} ({sum(y)/len(y)*100:.1f}%)")
+            logger.info(
+                f"Positive samples: {positive_samples} "
+                f"({positive_samples/len(y)*100:.1f}%) | "
+                f"Negative samples: {negative_samples}"
+            )
+            if skipped_samples:
+                logger.info(f"Skipped samples (no TP/SL): {skipped_samples}")
         
         # Train/Test Split
         X_train, X_test, y_train, y_test = train_test_split(
@@ -185,7 +200,12 @@ class AIModel:
             'train_accuracy': train_acc,
             'test_accuracy': test_acc,
             'samples': len(X),
-            'positive_rate': sum(y) / len(y)
+            'positive_rate': positive_samples / len(y),
+            'label_distribution': {
+                'positive': positive_samples,
+                'negative': negative_samples,
+                'skipped': skipped_samples
+            }
         }
     
     def load(self) -> bool:

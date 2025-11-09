@@ -314,8 +314,9 @@ def create_dashboard_app(bot_state: Dict) -> tuple:
             document.getElementById('win-rate').textContent = (winRate * 100).toFixed(1) + '%';
             document.getElementById('win-loss').textContent = `${stats.wins || 0}W / ${stats.losses || 0}L`;
             
-            // Sharpe (간단 계산)
-            document.getElementById('sharpe').textContent = '1.85'; // Placeholder
+            // Sharpe
+            const sharpe = stats.sharpe_ratio || 0;
+            document.getElementById('sharpe').textContent = sharpe.toFixed(2);
             
             // Positions
             const positions = data.positions || [];

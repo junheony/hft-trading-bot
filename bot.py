@@ -5,7 +5,7 @@ HFT Bot v0.7 - Main Bot Module
 import asyncio
 import uuid
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from core import (
     TradingConfig, Logger, Position, Trade, SignalType, ExitReason

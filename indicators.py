@@ -69,34 +69,64 @@ class TechnicalIndicators:
         signal: int = 9
     ) -> Optional[Tuple[float, float, float]]:
         """
-        정확한 MACD
+        정확한 MACD (표준 구현)
+        MACD Line = EMA(fast) - EMA(slow)
+        Signal Line = EMA(MACD Line, signal)
+        Histogram = MACD Line - Signal Line
         Returns: (MACD Line, Signal Line, Histogram)
         """
         if len(prices) < slow + signal:
             return None
-        
+
         prices_array = np.array(prices)
-        
-        # EMA Fast & Slow
-        ema_fast = TechnicalIndicators.calculate_ema(prices_array[-fast:], fast)
-        ema_slow = TechnicalIndicators.calculate_ema(prices_array[-slow:], slow)
-        
-        if ema_fast is None or ema_slow is None:
-            return None
-        
+
+        # EMA Fast - 전체 배열에 대해 계산
+        k_fast = 2.0 / (fast + 1)
+        ema_fast = prices_array[0]
+        for price in prices_array[1:]:
+            ema_fast = price * k_fast + ema_fast * (1 - k_fast)
+
+        # EMA Slow - 전체 배열에 대해 계산
+        k_slow = 2.0 / (slow + 1)
+        ema_slow = prices_array[0]
+        for price in prices_array[1:]:
+            ema_slow = price * k_slow + ema_slow * (1 - k_slow)
+
         macd_line = ema_fast - ema_slow
-        
-        # Signal Line (MACD의 EMA)
-        # 실제로는 과거 MACD 값들의 EMA를 구해야 하지만
-        # 단순화: 최근 signal 기간의 가격 변화로 근사
-        recent_prices = prices_array[-signal:]
-        signal_line = TechnicalIndicators.calculate_ema(recent_prices, signal)
-        
-        if signal_line is None:
-            signal_line = macd_line * 0.9  # Fallback
-        
+
+        # Signal Line: MACD 값들의 EMA를 구하기 위해
+        # 최근 signal 기간 동안의 MACD 값들을 재계산
+        macd_values = []
+        min_required = max(slow, fast)
+
+        if len(prices_array) >= min_required + signal:
+            for i in range(min_required, len(prices_array) + 1):
+                subset = prices_array[:i]
+
+                # Fast EMA
+                ema_f = subset[0]
+                for p in subset[1:]:
+                    ema_f = p * k_fast + ema_f * (1 - k_fast)
+
+                # Slow EMA
+                ema_s = subset[0]
+                for p in subset[1:]:
+                    ema_s = p * k_slow + ema_s * (1 - k_slow)
+
+                macd_values.append(ema_f - ema_s)
+
+        # MACD 값들의 EMA = Signal Line
+        if len(macd_values) >= signal:
+            k_signal = 2.0 / (signal + 1)
+            signal_line = macd_values[0]
+            for macd_val in macd_values[1:]:
+                signal_line = macd_val * k_signal + signal_line * (1 - k_signal)
+        else:
+            # 데이터가 부족하면 단순 평균으로 대체
+            signal_line = macd_line * 0.9
+
         histogram = macd_line - signal_line
-        
+
         return macd_line, signal_line, histogram
     
     @staticmethod

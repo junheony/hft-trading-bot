@@ -53,6 +53,7 @@ class TradingConfig:
     # Trading
     trade_amount_krw: float = 500_000
     orderbook_depth: int = 10
+    slippage_bps: float = 1.5
     
     # === Strategy Weights (가중치 기반) ===
     # 총합 1.0이 되도록 설정
