@@ -1,6 +1,7 @@
 """
-HFT Bot v0.8 - Advanced Backtester Module
+HFT Bot v0.9 - Advanced Backtester Module
 정확한 체결 모델 및 수수료/슬리피지 반영 백테스트 엔진
+Hierarchical Strategy 지원
 """
 
 import glob
@@ -21,6 +22,7 @@ from core import (
     Logger,
 )
 from strategy import WeightedMultiStrategy
+from signal import SignalDirection
 
 
 @dataclass
@@ -37,16 +39,26 @@ class BacktestPosition:
 
 class Backtester:
     """
-    백테스트 엔진 (v0.8)
+    백테스트 엔진 (v0.9)
     - JSONL 실데이터 재생
     - 슬리피지/수수료 반영 체결 모델
-    - 동일한 전략 파이프라인 재사용
+    - 동일한 전략 파이프라인 재사용 (Hierarchical or Weighted)
     """
 
     def __init__(self, config: TradingConfig, logger: Logger):
         self.config = config
         self.logger = logger
-        self.strategy = WeightedMultiStrategy(config)
+
+        # Strategy 선택 (hierarchical or weighted)
+        if config.use_hierarchical_strategy:
+            from hierarchical_strategy import HierarchicalStrategy
+            from risk import RiskManager
+            risk_manager = RiskManager(config)
+            self.strategy = HierarchicalStrategy(config, risk_manager, logger)
+            logger.info("✓ Backtesting with Hierarchical Strategy (v0.9)")
+        else:
+            self.strategy = WeightedMultiStrategy(config)
+            logger.info("✓ Backtesting with Weighted Multi-Strategy (v0.8)")
 
     def load_data(self, symbol: str) -> List[Dict[str, Any]]:
         """수집된 JSONL 데이터 로드"""
@@ -107,16 +119,38 @@ class Backtester:
             current_price = data["price"]
             current_volume = data.get("volume", 0)
 
-            signal, signal_score, indicators = self.strategy.generate_signal(
-                orderbook, current_price, current_volume
-            )
+            # Strategy에 따라 반환 타입이 다름
+            dynamic_position_size = None  # hierarchical에서 계산된 포지션 크기
+
+            if self.config.use_hierarchical_strategy:
+                exec_signal, metadata = self.strategy.generate_signal(
+                    orderbook, current_price, current_volume
+                )
+                if exec_signal is None or exec_signal.direction == SignalDirection.NEUTRAL:
+                    signal = SignalType.NONE
+                    signal_score = 0.0
+                    indicators = {}
+                else:
+                    signal = SignalType.LONG if exec_signal.direction == SignalDirection.LONG else SignalType.NONE
+                    signal_score = exec_signal.score
+                    indicators = metadata.get('strategic_signal', {}).get('indicators', {})
+                    # 동적 포지션 사이징
+                    dynamic_position_size = exec_signal.position_size_krw
+            else:
+                signal, signal_score, indicators = self.strategy.generate_signal(
+                    orderbook, current_price, current_volume
+                )
 
             if position is None and signal == SignalType.LONG:
                 ask_price = orderbook.asks[0][0]
                 entry_price = ask_price * (
                     1 + self.config.slippage_bps / 10_000
                 )
-                amount = self.config.trade_amount_krw / entry_price
+                # 포지션 크기 결정 (hierarchical이면 동적, 아니면 고정)
+                if dynamic_position_size is not None:
+                    amount = dynamic_position_size / entry_price
+                else:
+                    amount = self.config.trade_amount_krw / entry_price
                 entry_cost = amount * entry_price
                 entry_fee = entry_cost * self.config.taker_fee
 

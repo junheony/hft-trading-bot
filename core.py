@@ -1,6 +1,6 @@
 """
-HFT Bot v0.7 - Core Module
-데이터 모델 및 설정
+HFT Bot v0.9 - Core Module
+데이터 모델 및 설정 (Hierarchical Architecture)
 """
 
 import os
@@ -126,7 +126,21 @@ class TradingConfig:
     # Backtest
     backtest_data_dir: str = "data/collected"
     backtest_train_ratio: float = 0.7
-    
+
+    # === Hierarchical Strategy (v0.9) ===
+    use_hierarchical_strategy: bool = True  # True면 계층적 전략, False면 기존 가중 평균
+
+    # TTL (Time-To-Live) 기본값
+    ttl_macro_seconds: int = 60      # Macro Filter TTL
+    ttl_strategic_seconds: int = 30  # Strategic Signal TTL
+    ttl_tactical_seconds: int = 10   # Tactical Execution TTL
+
+    # Dynamic Position Sizing
+    enable_dynamic_sizing: bool = True  # 동적 포지션 사이징 활성화
+    min_position_factor: float = 0.2    # 최소 포지션 = base * 0.2
+    max_position_factor: float = 1.5    # 최대 포지션 = base * 1.5
+    target_volatility: float = 0.02     # 목표 변동성 (2%)
+
     # System
     entry_retry_max: int = 3
     entry_retry_delay: float = 1.0  # seconds

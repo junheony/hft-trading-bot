@@ -45,12 +45,18 @@ async def mode_bot(args, config: TradingConfig):
     if not await exchange.initialize():
         logger.error("Exchange initialization failed")
         return
-    
-    # Strategy
-    strategy = WeightedMultiStrategy(config)
-    
-    # Risk
+
+    # Risk (strategy보다 먼저 초기화 - hierarchical strategy에서 필요)
     risk = RiskManager(config)
+
+    # Strategy (hierarchical or weighted)
+    if config.use_hierarchical_strategy:
+        from hierarchical_strategy import HierarchicalStrategy
+        strategy = HierarchicalStrategy(config, risk, logger)
+        logger.info("✓ Using Hierarchical Strategy (v0.9)")
+    else:
+        strategy = WeightedMultiStrategy(config)
+        logger.info("✓ Using Weighted Multi-Strategy (v0.8)")
     
     # Position
     pm = PositionManager(config)
@@ -279,6 +285,8 @@ def main():
                        help='Signal score threshold (0~1)')
     parser.add_argument('--no-dynamic', action='store_true',
                        help='Disable dynamic parameters')
+    parser.add_argument('--hierarchical', action='store_true',
+                       help='Use hierarchical strategy (v0.9) instead of weighted average')
     
     # AI
     parser.add_argument('--no-ai', action='store_true',
@@ -307,6 +315,7 @@ def main():
         signal_threshold=args.signal_threshold,
         enable_dynamic_params=not args.no_dynamic,
         use_ai_filter=not args.no_ai,
+        use_hierarchical_strategy=args.hierarchical if hasattr(args, 'hierarchical') else True,
         telegram_token=args.telegram_token or os.getenv('TELEGRAM_TOKEN'),
         telegram_chat_id=args.telegram_chat or os.getenv('TELEGRAM_CHAT_ID')
     )
@@ -318,6 +327,7 @@ def main():
     if args.mode == 'bot':
         print(f"Trade Amount: {config.trade_amount_krw:,.0f} KRW")
         print(f"Signal Threshold: {config.signal_threshold}")
+        print(f"Strategy: {'Hierarchical (v0.9)' if config.use_hierarchical_strategy else 'Weighted (v0.8)'}")
         print(f"AI Filter: {'Enabled' if config.use_ai_filter else 'Disabled'}")
         print(f"Dynamic Params: {'Enabled' if config.enable_dynamic_params else 'Disabled'}")
     print("="*60 + "\n")

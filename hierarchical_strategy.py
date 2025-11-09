@@ -10,6 +10,7 @@ from core import TradingConfig, OrderBook, Logger
 from signal import Signal, SignalDirection, SignalLevel, ExecutionSignal
 from agents import MacroFilterAgent, StrategyAgent, ExecutionAgent
 from risk import RiskManager
+from indicators import TechnicalIndicators
 
 
 class HierarchicalStrategy:
